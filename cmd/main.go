@@ -12,6 +12,7 @@ import (
 	config2 "relay-hook/internal/config"
 	"relay-hook/internal/database"
 	"relay-hook/internal/event"
+	"relay-hook/internal/publisher"
 	"syscall"
 	"time"
 )
@@ -37,9 +38,16 @@ func main() {
 
 	// Kafka
 	producer, err := broker.NewProducer(cfg.Kafka.Brokers, cfg.Kafka.Topic)
+	if err != nil {
+		log.Fatal("Error connecting to Kafka broker")
+	}
+
+	go func() {
+		publisher.Run(ctx, pool, producer)
+	}()
 
 	// Service
-	service := event.NewService(repository, producer)
+	service := event.NewService(repository)
 
 	// HTTP handlers
 	mux := http.NewServeMux()

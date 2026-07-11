@@ -5,26 +5,17 @@ import (
 	"encoding/json"
 )
 
-type Publisher interface {
-	Publish(ctx context.Context, e Event) error
-}
-
 type Service struct {
-	repo      *Repository
-	publisher Publisher
+	repo *Repository
 }
 
-func NewService(repo *Repository, publisher Publisher) *Service {
-	return &Service{repo: repo, publisher: publisher}
+func NewService(repo *Repository) *Service {
+	return &Service{repo: repo}
 }
 
 func (s *Service) Receive(ctx context.Context, t Type, payload json.RawMessage) (e Event, err error) {
 	e = New(t, payload)
-
-	if err = s.publisher.Publish(ctx, e); err != nil {
-		return Event{}, err
-	}
-	s.repo.Save(ctx, e)
+	err = s.repo.Save(ctx, e)
 	return e, err
 }
 

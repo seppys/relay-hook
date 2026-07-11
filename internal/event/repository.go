@@ -15,7 +15,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) GetAll(ctx context.Context) ([]Event, error) {
-	rows, err := r.db.Query(ctx, "SELECT * FROM events")
+	rows, err := r.db.Query(ctx, "SELECT id, type, payload, received_at FROM events")
 	if err != nil {
 		return nil, err
 	}
