@@ -7,21 +7,19 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
-	"os"
 	"os/signal"
+	"relay-hook/internal/broker"
+	config2 "relay-hook/internal/config"
 	"relay-hook/internal/database"
 	"relay-hook/internal/event"
 	"syscall"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+
+	// Environment variables
+	cfg, err := config2.GetConfig()
 
 	// Context
 	ctx := context.Background()
@@ -29,8 +27,7 @@ func main() {
 	defer stop()
 
 	// Database
-	connectionString := getConnectionString()
-	pool, err := database.NewPool(ctx, connectionString)
+	pool, err := database.NewPool(ctx, cfg.Postgres.ConnectionString)
 	if err != nil {
 		log.Fatal("Error connecting to database")
 	}
@@ -38,8 +35,11 @@ func main() {
 	// Repository
 	repository := event.NewRepository(pool)
 
+	// Kafka
+	producer, err := broker.NewProducer(cfg.Kafka.Brokers, cfg.Kafka.Topic)
+
 	// Service
-	service := event.NewService(repository)
+	service := event.NewService(repository, producer)
 
 	// HTTP handlers
 	mux := http.NewServeMux()
@@ -48,7 +48,7 @@ func main() {
 
 	// HTTP server
 	srv := &http.Server{
-		Addr:              "127.0.0.1:8000",
+		Addr:              cfg.HTTPAddr,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -66,14 +66,4 @@ func main() {
 	case <-ctx.Done():
 		slog.Info("shutdown signal received")
 	}
-}
-
-// todo: add validation field by field
-func getConnectionString() string {
-	dbHost := os.Getenv("DB_HOST")
-	dbName := os.Getenv("DB_DATABASE")
-	dbUsername := os.Getenv("DB_USERNAME")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	connectionString := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUsername, dbPassword, dbHost, dbName)
-	return connectionString
 }
