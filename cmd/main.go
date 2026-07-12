@@ -13,6 +13,7 @@ import (
 	"relay-hook/internal/database"
 	"relay-hook/internal/event"
 	"relay-hook/internal/publisher"
+	subscription "relay-hook/internal/subscription"
 	"syscall"
 	"time"
 )
@@ -34,7 +35,8 @@ func main() {
 	}
 
 	// Repository
-	repository := event.NewRepository(pool)
+	eventRepo := event.NewRepository(pool)
+	subscriptionRepo := subscription.NewRepository(pool)
 
 	// Kafka
 	producer, err := broker.NewProducer(cfg.Kafka.Brokers, cfg.Kafka.Topic)
@@ -46,13 +48,25 @@ func main() {
 		publisher.Run(ctx, pool, producer)
 	}()
 
-	// Service
-	service := event.NewService(repository)
+	// Services
+	eventSvc := event.NewService(eventRepo)
+	subscriptionSvc := subscription.NewService(subscriptionRepo)
 
 	// HTTP handlers
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /events", event.GetAllHandler(service))
-	mux.HandleFunc("POST /events", event.CollectHandler(service))
+
+	// Events handlers
+	mux.HandleFunc("GET /events", event.GetAllHandler(eventSvc))
+	mux.HandleFunc("POST /events", event.CollectHandler(eventSvc))
+
+	// Subscriber handlers
+	mux.HandleFunc("PUT /subscribers/{id}", subscription.UpdateSubscriberHandler(subscriptionSvc))
+	mux.HandleFunc("DELETE /subscribers/{id}", subscription.DeleteSubscriberHandler(subscriptionSvc))
+
+	// Subscription handlers
+	mux.HandleFunc("GET /subscriptions", subscription.GetAllHandler(subscriptionSvc))
+	mux.HandleFunc("POST /subscriptions", subscription.RegisterHandler(subscriptionSvc))
+	mux.HandleFunc("DELETE /subscriptions/{id}", subscription.DeleteHandler(subscriptionSvc))
 
 	// HTTP server
 	srv := &http.Server{
