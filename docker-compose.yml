@@ -1,7 +1,9 @@
 services:
-  app:
+  api:
     build:
       dockerfile: ./Dockerfile
+      args:
+        CMD: api
     ports:
       - "8000:8000"
     environment:
@@ -15,6 +17,44 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  publisher:
+    build:
+      dockerfile: ./Dockerfile
+      args:
+        CMD: publisher
+    environment:
+      DB_HOST: postgres:5432
+      DB_DATABASE: "${DB_DATABASE}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: "${KAFKA_TOPIC}"
+      HTTP_ADDRESS: "${HTTP_ADDRESS}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dispatcher:
+    build:
+      dockerfile: ./Dockerfile
+      args:
+        CMD: dispatcher
+    environment:
+      DB_HOST: postgres:5432
+      DB_DATABASE: "${DB_DATABASE}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: "${KAFKA_TOPIC}"
+      HTTP_ADDRESS: "${HTTP_ADDRESS}"
+    depends_on:
       kafka:
         condition: service_healthy
     restart: unless-stopped

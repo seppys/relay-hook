@@ -7,8 +7,9 @@ RUN go mod download
 
 COPY . .
 
+ARG CMD
 RUN CGO_ENABLED=1 GOOS=linux \
-    go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/main.go
+    go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${CMD}
 
 FROM gcr.io/distroless/base-debian12
 

@@ -3,6 +3,7 @@ package subscription
 import (
 	"context"
 	"errors"
+	"relay-hook/internal/event"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -88,6 +89,30 @@ func (r *Repository) FindByEndpoint(ctx context.Context, endpoint string) (Subsc
 		return Subscriber{}, ErrNotFound
 	}
 	return s, err
+}
+
+func (r *Repository) SubscribersFor(ctx context.Context, eventType event.Type) ([]Subscriber, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT s.id, s.endpoint_url
+		 FROM subscribers s
+		 JOIN subscriptions sub ON sub.subscriber_id = s.id
+		 WHERE sub.event_type = $1`,
+		eventType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	subs := make([]Subscriber, 0)
+	for rows.Next() {
+		var s Subscriber
+		if err := rows.Scan(&s.Id, &s.EndpointURL); err != nil {
+			return nil, err
+		}
+		subs = append(subs, s)
+	}
+	return subs, rows.Err()
 }
 
 func (r *Repository) UpdateEndpoint(ctx context.Context, id, endpoint string) error {

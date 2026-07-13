@@ -41,6 +41,10 @@ func (s *Service) GetAll(ctx context.Context) ([]View, error) {
 	return s.repo.GetAll(ctx)
 }
 
+func (s *Service) SubscribersFor(ctx context.Context, eventType event.Type) ([]Subscriber, error) {
+	return s.repo.SubscribersFor(ctx, eventType)
+}
+
 func (s *Service) UpdateEndpoint(ctx context.Context, id string, endpointURL string) error {
 	err := s.repo.UpdateEndpoint(ctx, id, endpointURL)
 	return err

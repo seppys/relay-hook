@@ -8,12 +8,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os/signal"
-	"relay-hook/internal/broker"
-	config2 "relay-hook/internal/config"
+	"relay-hook/internal/config"
 	"relay-hook/internal/database"
 	"relay-hook/internal/event"
-	"relay-hook/internal/publisher"
-	subscription "relay-hook/internal/subscription"
+	"relay-hook/internal/subscription"
 	"syscall"
 	"time"
 )
@@ -21,7 +19,7 @@ import (
 func main() {
 
 	// Environment variables
-	cfg, err := config2.GetConfig()
+	cfg, err := config.GetConfig()
 
 	// Context
 	ctx := context.Background()
@@ -37,16 +35,6 @@ func main() {
 	// Repository
 	eventRepo := event.NewRepository(pool)
 	subscriptionRepo := subscription.NewRepository(pool)
-
-	// Kafka
-	producer, err := broker.NewProducer(cfg.Kafka.Brokers, cfg.Kafka.Topic)
-	if err != nil {
-		log.Fatal("Error connecting to Kafka broker")
-	}
-
-	go func() {
-		publisher.Run(ctx, pool, producer)
-	}()
 
 	// Services
 	eventSvc := event.NewService(eventRepo)
