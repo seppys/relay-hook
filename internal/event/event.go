@@ -2,9 +2,16 @@ package event
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+)
+
+var (
+	ErrInvalidID      = errors.New("invalid or missing id")
+	ErrInvalidPayload = errors.New("invalid or missing payload")
+	ErrInternalServer = errors.New("server error")
 )
 
 type Type string

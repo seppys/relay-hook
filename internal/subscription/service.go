@@ -18,7 +18,7 @@ func NewService(repo *Repository) *Service {
 func (s *Service) Register(ctx context.Context, eventType event.Type, endpoint string) (Subscription, error) {
 	subscriber, err := s.repo.FindByEndpoint(ctx, endpoint)
 	if err != nil && !errors.Is(err, ErrNotFound) {
-		return Subscription{}, err
+		return Subscription{}, ErrNotFound
 	}
 
 	if errors.Is(err, ErrNotFound) {
@@ -47,7 +47,13 @@ func (s *Service) SubscribersFor(ctx context.Context, eventType event.Type) ([]S
 
 func (s *Service) UpdateEndpoint(ctx context.Context, id string, endpointURL string) error {
 	err := s.repo.UpdateEndpoint(ctx, id, endpointURL)
-	return err
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return ErrNotFound
+		}
+		return ErrInternalServer
+	}
+	return nil
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {

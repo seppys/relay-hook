@@ -11,7 +11,7 @@ func GetAllHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subs, err := svc.GetAll(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(subs)
@@ -25,13 +25,13 @@ func RegisterHandler(svc *Service) http.HandlerFunc {
 			EndpointURL string     `json:"endpoint_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
 			return
 		}
 
 		sub, err := svc.Register(r.Context(), body.EventType, body.EndpointURL)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -44,19 +44,23 @@ func UpdateSubscriberHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {
-			http.Error(w, "id is required", http.StatusBadRequest)
+			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
 			return
 		}
 		var body struct {
 			EndpointURL string `json:"endpoint_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, ErrInvalidPayload.Error(), http.StatusBadRequest)
 		}
 
 		err := svc.repo.UpdateEndpoint(r.Context(), id, body.EndpointURL)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			if errors.Is(err, ErrNotFound) {
+				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
+			} else {
+				http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
+			}
 		}
 		w.WriteHeader(http.StatusOK)
 	}
@@ -66,15 +70,15 @@ func DeleteHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {
-			http.Error(w, "id is required", http.StatusBadRequest)
+			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
 			return
 		}
 		if err := svc.Delete(r.Context(), id); err != nil {
 			if errors.Is(err, ErrNotFound) {
-				http.Error(w, "not found", http.StatusNotFound)
+				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
 				return
 			}
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -85,15 +89,15 @@ func DeleteSubscriberHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {
-			http.Error(w, "id is required", http.StatusBadRequest)
+			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
 			return
 		}
 		if err := svc.DeleteSubscriber(r.Context(), id); err != nil {
 			if errors.Is(err, ErrNotFound) {
-				http.Error(w, "not found", http.StatusNotFound)
+				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
 				return
 			}
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

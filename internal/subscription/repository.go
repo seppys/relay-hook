@@ -121,7 +121,7 @@ func (r *Repository) UpdateEndpoint(ctx context.Context, id, endpoint string) er
 		endpoint, id,
 	)
 	if err != nil {
-		return err
+		return ErrInternalServer
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
