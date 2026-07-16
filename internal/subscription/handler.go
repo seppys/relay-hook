@@ -12,6 +12,7 @@ func GetAllHandler(svc *Service) http.HandlerFunc {
 		subs, err := svc.GetAll(r.Context())
 		if err != nil {
 			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(subs)
@@ -52,6 +53,7 @@ func UpdateSubscriberHandler(svc *Service) http.HandlerFunc {
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, ErrInvalidPayload.Error(), http.StatusBadRequest)
+			return
 		}
 
 		err := svc.repo.UpdateEndpoint(r.Context(), id, body.EndpointURL)
@@ -61,6 +63,7 @@ func UpdateSubscriberHandler(svc *Service) http.HandlerFunc {
 			} else {
 				http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			}
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 	}
@@ -76,9 +79,9 @@ func DeleteHandler(svc *Service) http.HandlerFunc {
 		if err := svc.Delete(r.Context(), id); err != nil {
 			if errors.Is(err, ErrNotFound) {
 				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
-				return
+			} else {
+				http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			}
-			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -95,9 +98,9 @@ func DeleteSubscriberHandler(svc *Service) http.HandlerFunc {
 		if err := svc.DeleteSubscriber(r.Context(), id); err != nil {
 			if errors.Is(err, ErrNotFound) {
 				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
-				return
+			} else {
+				http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			}
-			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

@@ -10,6 +10,7 @@ func GetAllHandler(svc *Service) http.HandlerFunc {
 		e, err := svc.GetAll(r.Context())
 		if err != nil {
 			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(e)
