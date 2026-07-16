@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os/signal"
+	"relay-hook/internal/auth"
 	"relay-hook/internal/config"
 	"relay-hook/internal/database"
 	"relay-hook/internal/event"
@@ -33,15 +34,27 @@ func main() {
 	}
 
 	// Repository
+	authRepo := auth.NewRepository(pool)
 	eventRepo := event.NewRepository(pool)
 	subscriptionRepo := subscription.NewRepository(pool)
 
 	// Services
+	authSvc := auth.NewService(authRepo, cfg.JWT.Secret)
 	eventSvc := event.NewService(eventRepo)
 	subscriptionSvc := subscription.NewService(subscriptionRepo)
 
+	// Middlewares
+	requireJWT := auth.RequireJWT(authSvc)
+
 	// HTTP handlers
 	mux := http.NewServeMux()
+
+	// User handlers
+	mux.HandleFunc("POST /users/register", auth.RegisterHandler(authSvc))
+	mux.HandleFunc("POST /users/login", auth.LoginHandler(authSvc))
+
+	// Key handlers
+	mux.HandleFunc("POST /keys", requireJWT(auth.GenerateKeyHandler(authSvc)))
 
 	// Events handlers
 	mux.HandleFunc("GET /events", event.GetAllHandler(eventSvc))

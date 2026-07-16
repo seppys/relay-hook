@@ -16,10 +16,15 @@ type Postgres struct {
 	ConnectionString string
 }
 
+type JWT struct {
+	Secret string
+}
+
 type Config struct {
 	Kafka    Kafka
 	Postgres Postgres
 	HTTPAddr string
+	JWT      JWT
 }
 
 func GetConfig() (Config, error) {
@@ -37,10 +42,13 @@ func GetConfig() (Config, error) {
 	topic := os.Getenv("KAFKA_TOPIC")
 
 	httpAddr := os.Getenv("HTTP_ADDRESS")
+
+	jwtSecret := os.Getenv("JWT_SECRET")
 	config := Config{
 		Postgres: Postgres{ConnectionString: connectionString},
 		Kafka:    Kafka{Brokers: brokers, Topic: topic},
 		HTTPAddr: httpAddr,
+		JWT:      JWT{Secret: jwtSecret},
 	}
 
 	return config, err

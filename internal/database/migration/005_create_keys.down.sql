@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS keys_permissions;
+DROP TABLE IF EXISTS keys;
+DROP TYPE IF EXISTS key_role;
