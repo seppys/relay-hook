@@ -58,7 +58,7 @@ func publishPendingEvents(ctx context.Context, pool *pgxpool.Pool, pub Publisher
 }
 
 func Run(ctx context.Context, pool *pgxpool.Pool, pub Publisher) {
-	ticker := time.NewTicker(20 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for {
