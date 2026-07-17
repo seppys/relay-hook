@@ -13,6 +13,7 @@ import (
 	"relay-hook/internal/database"
 	"relay-hook/internal/event"
 	"relay-hook/internal/subscription"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -73,6 +74,15 @@ func main() {
 	mux.HandleFunc("POST /subscriptions", requireSubscriberAPIKey(subscription.RegisterHandler(subscriptionSvc)))
 	mux.HandleFunc("DELETE /subscriptions/{id}", requireSubscriberAPIKey(subscription.DeleteHandler(subscriptionSvc)))
 
+	var wg sync.WaitGroup
+
+	cleaner := auth.NewCleaner(authRepo)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cleaner.Run(ctx)
+	}()
+
 	// HTTP server
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -93,4 +103,6 @@ func main() {
 	case <-ctx.Done():
 		slog.Info("shutdown signal received")
 	}
+
+	wg.Wait()
 }

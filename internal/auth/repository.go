@@ -187,3 +187,11 @@ func (r *Repository) RemoveKey(ctx context.Context, keyID, userID string) error 
 	}
 	return nil
 }
+
+func (r *Repository) RemoveExpiredKeys(ctx context.Context) error {
+	_, err := r.db.Exec(ctx, "DELETE FROM keys WHERE expires_at < now()")
+	if err != nil {
+		return ErrInternalServer
+	}
+	return nil
+}
