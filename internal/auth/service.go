@@ -52,6 +52,17 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 	return token, nil
 }
 
+func (s *Service) GetKeys(ctx context.Context, userID string) ([]Key, error) {
+	k, err := s.repo.GetKeysList(ctx, userID)
+	if err != nil {
+		if errors.Is(err, ErrKeyNotFound) {
+			return nil, ErrKeyNotFound
+		}
+		return nil, ErrInternalServer
+	}
+	return k, nil
+}
+
 func (s *Service) GenerateKey(ctx context.Context, userID string, role KeyRole, eventTypes []string) (GeneratedKey, error) {
 	k, err := NewKey(userID, role, eventTypes, time.Now().Add(7*time.Hour*24))
 	if err != nil {
@@ -69,6 +80,17 @@ func (s *Service) GenerateKey(ctx context.Context, userID string, role KeyRole, 
 		return GeneratedKey{}, ErrInternalServer
 	}
 	return k, nil
+}
+
+func (s *Service) RemoveKey(ctx context.Context, userID string, keyID string) error {
+	err := s.repo.RemoveKey(ctx, keyID, userID)
+	if err != nil {
+		if errors.Is(err, ErrKeyNotFound) {
+			return ErrKeyNotFound
+		}
+		return ErrInternalServer
+	}
+	return nil
 }
 
 func (s *Service) ValidateKey(ctx context.Context, keyString string) (Key, error) {

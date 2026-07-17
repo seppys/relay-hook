@@ -79,6 +79,49 @@ func (r *Repository) Register(ctx context.Context, user User) error {
 	return nil
 }
 
+func (r *Repository) GetKeysList(ctx context.Context, userID string) ([]Key, error) {
+	var keys []Key
+	rows, err := r.db.Query(ctx, `
+		SELECT k.id, k.user_id, k.role, k.created_at, k.expires_at,
+			   COALESCE(array_agg(p.event_type) FILTER (WHERE p.event_type IS NOT NULL), '{}') AS event_types
+		FROM keys k
+		LEFT JOIN key_permissions p ON p.key_id = k.id
+		WHERE k.user_id = $1
+		GROUP BY k.id, k.user_id, k.role, k.created_at, k.expires_at`,
+		userID)
+	if err != nil {
+		return nil, ErrInternalServer
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var key Key
+		if err := rows.Scan(&key.ID, &key.UserID, &key.Role, &key.CreatedAt, &key.ExpiresAt, &key.EventTypes); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+func (r *Repository) GetActiveKeyByID(ctx context.Context, keyID string) (Key, error) {
+	var k Key
+	err := r.db.QueryRow(ctx, `
+		SELECT id, user_id, key_hash, role, created_at, expires_at 
+		FROM keys 
+		WHERE id = $1`,
+		keyID,
+	).Scan(&k.ID, &k.UserID, &k.Role, &k.CreatedAt, &k.ExpiresAt, &k.EventTypes)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Key{}, ErrKeyNotFound
+	}
+	if err != nil {
+		return Key{}, ErrInternalServer
+	}
+	return k, nil
+}
+
 func (r *Repository) GetActiveKeyByHash(ctx context.Context, keyHash string) (Key, error) {
 	var k Key
 	err := r.db.QueryRow(ctx, `
@@ -134,8 +177,8 @@ func (r *Repository) SaveKey(ctx context.Context, key Key) error {
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) RemoveKey(ctx context.Context, key Key) error {
-	pgResult, err := r.db.Exec(ctx, "DELETE FROM keys WHERE id = $1", key.ID)
+func (r *Repository) RemoveKey(ctx context.Context, keyID, userID string) error {
+	pgResult, err := r.db.Exec(ctx, "DELETE FROM keys WHERE id = $1 AND user_id = $2", keyID, userID)
 	if err != nil {
 		return ErrInternalServer
 	}

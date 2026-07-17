@@ -26,6 +26,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrInvalidToken       = errors.New("invalid token")
+	ErrNotAllowed         = errors.New("not allowed")
 )
 
 type KeyRole string

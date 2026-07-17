@@ -57,6 +57,8 @@ func main() {
 
 	// Key handlers
 	mux.HandleFunc("POST /keys", requireJWT(auth.GenerateKeyHandler(authSvc)))
+	mux.HandleFunc("GET /keys", requireJWT(auth.GetKeysHandler(authSvc)))
+	mux.HandleFunc("DELETE /keys/{id}", requireJWT(auth.RemoveKeyHandler(authSvc)))
 
 	// Events handlers
 	mux.HandleFunc("GET /events", requireEmitterAPIKey(event.GetAllHandler(eventSvc)))

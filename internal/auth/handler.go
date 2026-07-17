@@ -82,6 +82,25 @@ func LoginHandler(svc *Service) http.HandlerFunc {
 	}
 }
 
+func GetKeysHandler(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := UserIDFromContext(r.Context())
+		keys, err := svc.GetKeys(r.Context(), userID)
+
+		if err != nil {
+			if errors.Is(err, ErrKeyNotFound) {
+				http.Error(w, ErrKeyNotFound.Error(), http.StatusNotFound)
+				return
+			}
+			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(keys)
+	}
+}
+
 type generateKeyRequest struct {
 	Role       KeyRole  `json:"role"`
 	EventTypes []string `json:"event_types"`
@@ -125,5 +144,26 @@ func GenerateKeyHandler(svc *Service) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(newKey)
+	}
+}
+
+func RemoveKeyHandler(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := UserIDFromContext(r.Context())
+		keyID := r.PathValue("id")
+		if keyID == "" {
+			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err := svc.RemoveKey(r.Context(), userID, keyID)
+		if err != nil {
+			if errors.Is(err, ErrKeyNotFound) {
+				http.Error(w, ErrKeyNotFound.Error(), http.StatusBadRequest)
+			}
+			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
