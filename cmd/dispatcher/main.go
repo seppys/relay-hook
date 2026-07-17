@@ -10,6 +10,7 @@ import (
 	"relay-hook/internal/delivery"
 	"relay-hook/internal/dispatch"
 	"relay-hook/internal/subscription"
+	"sync"
 	"syscall"
 )
 
@@ -40,7 +41,12 @@ func main() {
 	dispatcher := dispatch.NewDispatcher(subscriptionSvc, deliverer)
 	consumer := dispatch.NewConsumer(kafkaConsumer, dispatcher)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		consumer.Run(ctx)
 	}()
+	<-ctx.Done()
+	wg.Wait()
 }

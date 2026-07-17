@@ -8,6 +8,7 @@ import (
 	"relay-hook/internal/config"
 	"relay-hook/internal/database"
 	"relay-hook/internal/publisher"
+	"sync"
 	"syscall"
 )
 
@@ -32,7 +33,12 @@ func main() {
 		log.Fatal("Error connecting to Kafka broker")
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		publisher.Run(ctx, pool, producer)
 	}()
+	<-ctx.Done()
+	wg.Wait()
 }
