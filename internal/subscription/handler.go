@@ -4,12 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"relay-hook/internal/auth"
 	"relay-hook/internal/event"
 )
 
 func GetAllHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		subs, err := svc.GetAll(r.Context())
+		key, ok := auth.KeyFromContext(r.Context())
+		if !ok {
+			http.Error(w, ErrUnauthorized.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		subs, err := svc.GetAll(r.Context(), key.UserID)
 		if err != nil {
 			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
@@ -21,6 +28,11 @@ func GetAllHandler(svc *Service) http.HandlerFunc {
 
 func RegisterHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		key, ok := auth.KeyFromContext(r.Context())
+		if !ok {
+			http.Error(w, ErrUnauthorized.Error(), http.StatusInternalServerError)
+			return
+		}
 		var body struct {
 			EventType   event.Type `json:"event_type"`
 			EndpointURL string     `json:"endpoint_url"`
@@ -29,8 +41,13 @@ func RegisterHandler(svc *Service) http.HandlerFunc {
 			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
 			return
 		}
+		permits := key.Permits(string(body.EventType))
+		if !permits {
+			http.Error(w, ErrNotAllowed.Error(), http.StatusForbidden)
+			return
+		}
 
-		sub, err := svc.Register(r.Context(), body.EventType, body.EndpointURL)
+		sub, err := svc.Register(r.Context(), key.UserID, body.EventType, body.EndpointURL)
 		if err != nil {
 			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
@@ -43,6 +60,12 @@ func RegisterHandler(svc *Service) http.HandlerFunc {
 
 func UpdateSubscriberHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		key, ok := auth.KeyFromContext(r.Context())
+		if !ok {
+			http.Error(w, ErrUnauthorized.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		id := r.PathValue("id")
 		if id == "" {
 			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
@@ -56,7 +79,7 @@ func UpdateSubscriberHandler(svc *Service) http.HandlerFunc {
 			return
 		}
 
-		err := svc.repo.UpdateEndpoint(r.Context(), id, body.EndpointURL)
+		err := svc.repo.UpdateEndpoint(r.Context(), id, key.UserID, body.EndpointURL)
 		if err != nil {
 			if errors.Is(err, ErrNotFound) {
 				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
@@ -71,12 +94,18 @@ func UpdateSubscriberHandler(svc *Service) http.HandlerFunc {
 
 func DeleteHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		key, ok := auth.KeyFromContext(r.Context())
+		if !ok {
+			http.Error(w, ErrUnauthorized.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		id := r.PathValue("id")
 		if id == "" {
 			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := svc.Delete(r.Context(), id); err != nil {
+		if err := svc.Delete(r.Context(), id, key.UserID); err != nil {
 			if errors.Is(err, ErrNotFound) {
 				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
 			} else {
@@ -90,12 +119,18 @@ func DeleteHandler(svc *Service) http.HandlerFunc {
 
 func DeleteSubscriberHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		key, ok := auth.KeyFromContext(r.Context())
+		if !ok {
+			http.Error(w, ErrUnauthorized.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		id := r.PathValue("id")
 		if id == "" {
 			http.Error(w, ErrInvalidID.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := svc.DeleteSubscriber(r.Context(), id); err != nil {
+		if err := svc.DeleteSubscriber(r.Context(), id, key.UserID); err != nil {
 			if errors.Is(err, ErrNotFound) {
 				http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
 			} else {

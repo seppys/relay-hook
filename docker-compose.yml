@@ -55,6 +55,8 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: "${KAFKA_TOPIC}"
       HTTP_ADDRESS: "${HTTP_ADDRESS}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       kafka:
         condition: service_healthy

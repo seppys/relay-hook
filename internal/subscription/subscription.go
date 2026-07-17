@@ -8,6 +8,7 @@ import (
 
 type Subscriber struct {
 	Id          string `json:"id"`
+	UserID      string `json:"user_id"`
 	EndpointURL string `json:"endpoint_url"`
 }
 
@@ -20,13 +21,15 @@ type Subscription struct {
 type View struct {
 	Id           string     `json:"id"`
 	SubscriberId string     `json:"subscriber_id"`
+	UserId       string     `json:"user_id"`
 	EventType    event.Type `json:"event_type"`
 	EndpointURL  string     `json:"endpoint_url"`
 }
 
-func NewSubscriber(endpoint string) Subscriber {
+func NewSubscriber(userID, endpoint string) Subscriber {
 	return Subscriber{
 		Id:          uuid.New().String(),
+		UserID:      userID,
 		EndpointURL: endpoint,
 	}
 }

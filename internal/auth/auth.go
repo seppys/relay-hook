@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"relay-hook/internal/event"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,13 +51,17 @@ type User struct {
 }
 
 type Key struct {
-	ID         string       `json:"id"`
-	UserID     string       `json:"user_id"`
-	KeyHash    string       `json:"-"`
-	Role       KeyRole      `json:"role"`
-	EventTypes []event.Type `json:"event_types"`
-	CreatedAt  time.Time    `json:"created_at"`
-	ExpiresAt  time.Time    `json:"expires_at"`
+	ID         string    `json:"id"`
+	UserID     string    `json:"user_id"`
+	KeyHash    string    `json:"-"`
+	Role       KeyRole   `json:"role"`
+	EventTypes []string  `json:"event_types"`
+	CreatedAt  time.Time `json:"created_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
+}
+
+func (k Key) Permits(eventType string) bool {
+	return len(k.EventTypes) == 0 || slices.Contains(k.EventTypes, eventType)
 }
 
 type GeneratedKey struct {
@@ -74,7 +78,7 @@ func NewUser(username string, password string) (User, error) {
 	return User{ID: id, Username: username, PasswordHash: string(hash)}, nil
 }
 
-func NewKey(userID string, role KeyRole, eventTypes []event.Type, expiresAt time.Time) (GeneratedKey, error) {
+func NewKey(userID string, role KeyRole, eventTypes []string, expiresAt time.Time) (GeneratedKey, error) {
 	plainKey, err := newPlaintextKey(role)
 	if err != nil {
 		return GeneratedKey{}, err
@@ -82,7 +86,7 @@ func NewKey(userID string, role KeyRole, eventTypes []event.Type, expiresAt time
 	key := Key{
 		ID:         uuid.New().String(),
 		UserID:     userID,
-		KeyHash:    hashKey(plainKey),
+		KeyHash:    HashKey(plainKey),
 		Role:       role,
 		EventTypes: eventTypes,
 		CreatedAt:  time.Now(),
@@ -110,7 +114,7 @@ func newPlaintextKey(role KeyRole) (string, error) {
 	return prefix + "_" + base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func hashKey(plainKey string) string {
+func HashKey(plainKey string) string {
 	bytes := sha256.Sum256([]byte(plainKey))
 	return hex.EncodeToString(bytes[:])
 }

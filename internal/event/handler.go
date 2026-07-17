@@ -3,11 +3,17 @@ package event
 import (
 	"encoding/json"
 	"net/http"
+	"relay-hook/internal/auth"
 )
 
 func GetAllHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		e, err := svc.GetAll(r.Context())
+		key, ok := auth.KeyFromContext(r.Context())
+		if !ok {
+			http.Error(w, auth.ErrUnauthorized.Error(), http.StatusUnauthorized)
+			return
+		}
+		e, err := svc.GetAll(r.Context(), key.UserID)
 		if err != nil {
 			http.Error(w, ErrInternalServer.Error(), http.StatusInternalServerError)
 			return
@@ -19,6 +25,11 @@ func GetAllHandler(svc *Service) http.HandlerFunc {
 
 func CollectHandler(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		key, ok := auth.KeyFromContext(r.Context())
+		if !ok {
+			http.Error(w, auth.ErrUnauthorized.Error(), http.StatusUnauthorized)
+			return
+		}
 		var body struct {
 			Type    Type            `json:"type"`
 			Payload json.RawMessage `json:"payload"`
@@ -27,7 +38,13 @@ func CollectHandler(svc *Service) http.HandlerFunc {
 			http.Error(w, ErrInvalidPayload.Error(), http.StatusBadRequest)
 			return
 		}
-		e, err := svc.Receive(r.Context(), body.Type, body.Payload)
+
+		if ok := key.Permits(string(body.Type)); !ok {
+			http.Error(w, ErrNotAllowed.Error(), http.StatusForbidden)
+			return
+		}
+
+		e, err := svc.Receive(r.Context(), key.UserID, body.Type, body.Payload)
 		if err != nil {
 			http.Error(w, ErrInternalServer.Error(), http.StatusBadRequest)
 			return

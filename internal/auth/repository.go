@@ -82,11 +82,14 @@ func (r *Repository) Register(ctx context.Context, user User) error {
 func (r *Repository) GetActiveKeyByHash(ctx context.Context, keyHash string) (Key, error) {
 	var k Key
 	err := r.db.QueryRow(ctx, `
-		SELECT id, user_id, role, created_at, expires_at
-		FROM keys
-		WHERE key_hash = $1
-		  AND (expires_at IS NULL OR expires_at > now())`, keyHash,
-	).Scan(&k.ID, &k.UserID, &k.Role, &k.ExpiresAt)
+		SELECT k.id, k.user_id, k.role, k.created_at, k.expires_at,
+		       COALESCE(array_agg(p.event_type) FILTER (WHERE p.event_type IS NOT NULL), '{}') AS event_types
+		FROM keys k
+		LEFT JOIN key_permissions p ON p.key_id = k.id
+		WHERE k.key_hash = $1
+		  AND (k.expires_at > now())
+		GROUP BY k.id, k.user_id, k.role, k.created_at, k.expires_at`, keyHash,
+	).Scan(&k.ID, &k.UserID, &k.Role, &k.CreatedAt, &k.ExpiresAt, &k.EventTypes)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Key{}, ErrKeyNotFound

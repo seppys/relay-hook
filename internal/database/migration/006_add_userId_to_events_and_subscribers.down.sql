@@ -1,0 +1,2 @@
+ALTER TABLE events DROP COLUMN IF EXISTS user_id;
+ALTER TABLE subscribers DROP COLUMN IF EXISTS user_id;

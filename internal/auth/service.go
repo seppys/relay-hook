@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"relay-hook/internal/event"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -53,7 +52,7 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 	return token, nil
 }
 
-func (s *Service) GenerateKey(ctx context.Context, userID string, role KeyRole, eventTypes []event.Type) (GeneratedKey, error) {
+func (s *Service) GenerateKey(ctx context.Context, userID string, role KeyRole, eventTypes []string) (GeneratedKey, error) {
 	k, err := NewKey(userID, role, eventTypes, time.Now().Add(7*time.Hour*24))
 	if err != nil {
 		if errors.Is(err, ErrRoleNotFound) {
@@ -72,8 +71,9 @@ func (s *Service) GenerateKey(ctx context.Context, userID string, role KeyRole, 
 	return k, nil
 }
 
-func (s *Service) ValidateKey(ctx context.Context, keyHash string) (Key, error) {
-	return s.repo.GetActiveKeyByHash(ctx, keyHash)
+func (s *Service) ValidateKey(ctx context.Context, keyString string) (Key, error) {
+	hash := HashKey(keyString)
+	return s.repo.GetActiveKeyByHash(ctx, hash)
 }
 
 func (s *Service) ParseJWT(tokenString string) (string, error) {

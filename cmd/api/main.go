@@ -45,6 +45,8 @@ func main() {
 
 	// Middlewares
 	requireJWT := auth.RequireJWT(authSvc)
+	requireSubscriberAPIKey := auth.RequireAPIKey(authSvc, auth.KeyRoleSubscriber)
+	requireEmitterAPIKey := auth.RequireAPIKey(authSvc, auth.KeyRoleEmitter)
 
 	// HTTP handlers
 	mux := http.NewServeMux()
@@ -57,17 +59,17 @@ func main() {
 	mux.HandleFunc("POST /keys", requireJWT(auth.GenerateKeyHandler(authSvc)))
 
 	// Events handlers
-	mux.HandleFunc("GET /events", event.GetAllHandler(eventSvc))
-	mux.HandleFunc("POST /events", event.CollectHandler(eventSvc))
+	mux.HandleFunc("GET /events", requireEmitterAPIKey(event.GetAllHandler(eventSvc)))
+	mux.HandleFunc("POST /events", requireEmitterAPIKey(event.CollectHandler(eventSvc)))
 
 	// Subscriber handlers
-	mux.HandleFunc("PUT /subscribers/{id}", subscription.UpdateSubscriberHandler(subscriptionSvc))
-	mux.HandleFunc("DELETE /subscribers/{id}", subscription.DeleteSubscriberHandler(subscriptionSvc))
+	mux.HandleFunc("PUT /subscribers/{id}", requireSubscriberAPIKey(subscription.UpdateSubscriberHandler(subscriptionSvc)))
+	mux.HandleFunc("DELETE /subscribers/{id}", requireSubscriberAPIKey(subscription.DeleteSubscriberHandler(subscriptionSvc)))
 
 	// Subscription handlers
-	mux.HandleFunc("GET /subscriptions", subscription.GetAllHandler(subscriptionSvc))
-	mux.HandleFunc("POST /subscriptions", subscription.RegisterHandler(subscriptionSvc))
-	mux.HandleFunc("DELETE /subscriptions/{id}", subscription.DeleteHandler(subscriptionSvc))
+	mux.HandleFunc("GET /subscriptions", requireSubscriberAPIKey(subscription.GetAllHandler(subscriptionSvc)))
+	mux.HandleFunc("POST /subscriptions", requireSubscriberAPIKey(subscription.RegisterHandler(subscriptionSvc)))
+	mux.HandleFunc("DELETE /subscriptions/{id}", requireSubscriberAPIKey(subscription.DeleteHandler(subscriptionSvc)))
 
 	// HTTP server
 	srv := &http.Server{

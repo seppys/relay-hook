@@ -9,10 +9,16 @@ import (
 type contextKey struct{}
 
 var userIDKey contextKey
+var apiKeyKey contextKey
 
 func UserIDFromContext(ctx context.Context) string {
 	id := ctx.Value(userIDKey).(string)
 	return id
+}
+
+func KeyFromContext(ctx context.Context) (Key, bool) {
+	key, ok := ctx.Value(apiKeyKey).(Key)
+	return key, ok
 }
 
 func RequireJWT(svc *Service) func(http.Handler) http.HandlerFunc {
@@ -36,6 +42,31 @@ func RequireJWT(svc *Service) func(http.Handler) http.HandlerFunc {
 	}
 }
 
+func RequireAPIKey(svc *Service, role KeyRole) func(http.Handler) http.HandlerFunc {
+	return func(next http.Handler) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			plainKey, err := apiKey(r)
+			if err != nil {
+				http.Error(w, ErrUnauthorized.Error(), http.StatusUnauthorized)
+				return
+			}
+
+			key, err := svc.ValidateKey(r.Context(), plainKey)
+			if err != nil {
+				http.Error(w, ErrUnauthorized.Error(), http.StatusUnauthorized)
+				return
+			}
+			if key.Role != role {
+				http.Error(w, ErrUnauthorized.Error(), http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), apiKeyKey, key)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		}
+	}
+}
+
 func bearerToken(r *http.Request) (string, error) {
 	header := r.Header.Get("Authorization")
 	if header == "" {
@@ -46,4 +77,12 @@ func bearerToken(r *http.Request) (string, error) {
 		return "", ErrUnauthorized
 	}
 	return token, nil
+}
+
+func apiKey(r *http.Request) (string, error) {
+	header := r.Header.Get("X-API-KEY")
+	if header == "" {
+		return "", ErrUnauthorized
+	}
+	return header, nil
 }

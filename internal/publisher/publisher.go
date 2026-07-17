@@ -22,7 +22,7 @@ func publishPendingEvents(ctx context.Context, pool *pgxpool.Pool, pub Publisher
 	defer tx.Rollback(ctx)
 
 	rows, err := tx.Query(ctx, `
-		SELECT id, type, payload, received_at
+		SELECT id, user_id, type, payload, received_at
 		FROM events 
 		WHERE status = 'pending'
 	`)
@@ -34,7 +34,7 @@ func publishPendingEvents(ctx context.Context, pool *pgxpool.Pool, pub Publisher
 	events := make([]event.Event, 0)
 	for rows.Next() {
 		var e event.Event
-		if err := rows.Scan(&e.Id, &e.Type, &e.Payload, &e.ReceivedAt); err != nil {
+		if err := rows.Scan(&e.Id, &e.UserID, &e.Type, &e.Payload, &e.ReceivedAt); err != nil {
 			return err
 		}
 		events = append(events, e)
@@ -65,7 +65,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool, pub Publisher) {
 		select {
 		case <-ctx.Done():
 			log.Println("relay shutting down")
-			break
+			return
 		case <-ticker.C:
 			if err := publishPendingEvents(ctx, pool, pub); err != nil {
 				log.Printf("relay error: %v", err)

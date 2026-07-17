@@ -35,7 +35,7 @@ func (p *Producer) Publish(ctx context.Context, e event.Event) error {
 	delivered := make(chan kafka.Event, 1)
 	msg := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &p.topic, Partition: kafka.PartitionAny},
-		Key:            []byte(e.Id),
+		Key:            []byte(e.UserID),
 		Value:          b,
 	}
 

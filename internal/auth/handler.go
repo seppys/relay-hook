@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"relay-hook/internal/event"
 )
 
 type authRequest struct {
@@ -84,8 +83,8 @@ func LoginHandler(svc *Service) http.HandlerFunc {
 }
 
 type generateKeyRequest struct {
-	Role       KeyRole      `json:"role"`
-	EventTypes []event.Type `json:"event_types"`
+	Role       KeyRole  `json:"role"`
+	EventTypes []string `json:"event_types"`
 }
 
 func (r *generateKeyRequest) validate() error {

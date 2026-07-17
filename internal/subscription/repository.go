@@ -27,8 +27,8 @@ func (r *Repository) Register(ctx context.Context, sub Subscriber, subs []Subscr
 	defer tx.Rollback(ctx)
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO subscribers (id, endpoint_url) VALUES ($1, $2)`,
-		sub.Id, sub.EndpointURL,
+		`INSERT INTO subscribers (id, user_id, endpoint_url) VALUES ($1, $2, $3)`,
+		sub.Id, sub.UserID, sub.EndpointURL,
 	)
 	if err != nil {
 		return err
@@ -57,11 +57,12 @@ func (r *Repository) Save(ctx context.Context, s Subscription) error {
 	return err
 }
 
-func (r *Repository) GetAll(ctx context.Context) ([]View, error) {
+func (r *Repository) GetAll(ctx context.Context, userID string) ([]View, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT sub.id, sub.subscriber_id, sub.event_type, s.endpoint_url
 		 FROM subscriptions sub
-		 JOIN subscribers s ON s.id = sub.subscriber_id`,
+		 JOIN subscribers s ON s.id = sub.subscriber_id
+		 WHERE s.user_id = $1`, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -79,11 +80,11 @@ func (r *Repository) GetAll(ctx context.Context) ([]View, error) {
 	return views, rows.Err()
 }
 
-func (r *Repository) FindByEndpoint(ctx context.Context, endpoint string) (Subscriber, error) {
+func (r *Repository) FindByEndpoint(ctx context.Context, userID string, endpoint string) (Subscriber, error) {
 	var s Subscriber
 	err := r.db.QueryRow(ctx,
-		`SELECT id, endpoint_url FROM subscribers WHERE endpoint_url = $1`,
-		endpoint,
+		`SELECT id, endpoint_url FROM subscribers WHERE endpoint_url = $1 AND user_id = $2`,
+		endpoint, userID,
 	).Scan(&s.Id, &s.EndpointURL)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Subscriber{}, ErrNotFound
@@ -91,13 +92,13 @@ func (r *Repository) FindByEndpoint(ctx context.Context, endpoint string) (Subsc
 	return s, err
 }
 
-func (r *Repository) SubscribersFor(ctx context.Context, eventType event.Type) ([]Subscriber, error) {
+func (r *Repository) SubscribersFor(ctx context.Context, userID string, eventType event.Type) ([]Subscriber, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT s.id, s.endpoint_url
 		 FROM subscribers s
 		 JOIN subscriptions sub ON sub.subscriber_id = s.id
-		 WHERE sub.event_type = $1`,
-		eventType,
+		 WHERE sub.event_type = $1 AND s.user_id = $2`,
+		eventType, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -115,10 +116,10 @@ func (r *Repository) SubscribersFor(ctx context.Context, eventType event.Type) (
 	return subs, rows.Err()
 }
 
-func (r *Repository) UpdateEndpoint(ctx context.Context, id, endpoint string) error {
+func (r *Repository) UpdateEndpoint(ctx context.Context, id, userID, endpoint string) error {
 	tag, err := r.db.Exec(ctx,
-		`UPDATE subscribers SET endpoint_url = $1 WHERE id = $2`,
-		endpoint, id,
+		`UPDATE subscribers SET endpoint_url = $1 WHERE id = $2 AND user_id = $3`,
+		endpoint, id, userID,
 	)
 	if err != nil {
 		return ErrInternalServer
@@ -130,8 +131,10 @@ func (r *Repository) UpdateEndpoint(ctx context.Context, id, endpoint string) er
 }
 
 // Delete remove a specific subscription
-func (r *Repository) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, "DELETE FROM subscriptions WHERE id = $1", id)
+func (r *Repository) Delete(ctx context.Context, id, userID string) error {
+	tag, err := r.db.Exec(ctx, `DELETE FROM subscriptions 
+       WHERE id = $1 AND subscriber_id in (SELECT id FROM subscribers WHERE user_id = $2)`,
+		id, userID)
 	if err != nil {
 		return err
 	}
@@ -142,8 +145,8 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 }
 
 // DeleteSubscriber remove a subscriber and its subscriptions
-func (r *Repository) DeleteSubscriber(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, "DELETE FROM subscribers WHERE id = $1", id)
+func (r *Repository) DeleteSubscriber(ctx context.Context, id string, userID string) error {
+	tag, err := r.db.Exec(ctx, "DELETE FROM subscribers WHERE id = $1 AND user_id = $2", id, userID)
 	if err != nil {
 		return err
 	}
