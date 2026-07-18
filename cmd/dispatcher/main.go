@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os/signal"
 	"relay-hook/internal/broker"
 	"relay-hook/internal/config"
@@ -12,6 +13,7 @@ import (
 	"relay-hook/internal/subscription"
 	"sync"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -30,16 +32,20 @@ func main() {
 	}
 
 	subscriptionRepo := subscription.NewRepository(pool)
+	deliveryRepo := delivery.NewRepository(pool)
 	subscriptionSvc := subscription.NewService(subscriptionRepo)
-	deliverer := delivery.NewDeliverer()
+	deliveryScv := delivery.NewService(deliveryRepo, &http.Client{
+		Timeout: 10 * time.Second,
+	})
 
 	kafkaConsumer, err := broker.NewConsumer(cfg.Kafka.Brokers, "rh-dispatcher", cfg.Kafka.Topic)
 	if err != nil {
 		log.Fatal("Error connecting to Kafka broker")
 	}
 
-	dispatcher := dispatch.NewDispatcher(subscriptionSvc, deliverer)
+	dispatcher := dispatch.NewDispatcher(subscriptionSvc, *deliveryScv)
 	consumer := dispatch.NewConsumer(kafkaConsumer, dispatcher)
+	retrier := delivery.NewRetrier(*deliveryScv)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -47,6 +53,13 @@ func main() {
 		defer wg.Done()
 		consumer.Run(ctx)
 	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		retrier.Run(ctx)
+	}()
+
 	<-ctx.Done()
 	wg.Wait()
 }
