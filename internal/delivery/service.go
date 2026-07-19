@@ -42,7 +42,7 @@ func (s *Service) GetPending(ctx context.Context) ([]Delivery, error) {
 }
 
 func (s *Service) Deliver(ctx context.Context, delivery Delivery) error {
-	err := s.sendRequest(ctx, delivery.EndpointURL, delivery.Payload)
+	err := s.sendRequest(ctx, delivery.EndpointURL, delivery.Payload, delivery.ID)
 	if err != nil {
 		if delivery.Attempts > 5 {
 			return s.UpdateStatus(ctx, delivery.ID, StatusDead)
@@ -52,12 +52,13 @@ func (s *Service) Deliver(ctx context.Context, delivery Delivery) error {
 	return s.UpdateStatus(ctx, delivery.ID, StatusDelivered)
 }
 
-func (s *Service) sendRequest(ctx context.Context, endpoint string, payload []byte) error {
+func (s *Service) sendRequest(ctx context.Context, endpoint string, payload []byte, idempotencyKey string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", idempotencyKey)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
