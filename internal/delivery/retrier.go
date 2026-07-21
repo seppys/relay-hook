@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Retrier struct {
@@ -29,12 +31,17 @@ func (r *Retrier) Run(ctx context.Context) {
 }
 
 func (r *Retrier) retryFailedEvents(ctx context.Context) {
+	ctx, span := tracer.Start(ctx, "delivery.retryFailedEvents")
+	defer span.End()
+
 	deliveries, err := r.svc.GetPending(ctx)
 	if err != nil {
+		span.RecordError(err)
 		log.Printf("error fetching pending deliveries: %v", err)
 		return
 	}
 
+	span.SetAttributes(attribute.Int("delivery.count", len(deliveries)))
 	for _, d := range deliveries {
 		_ = r.svc.Deliver(ctx, d)
 	}

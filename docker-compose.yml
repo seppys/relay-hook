@@ -15,10 +15,13 @@ services:
       KAFKA_TOPIC: "${KAFKA_TOPIC}"
       HTTP_ADDRESS: "${HTTP_ADDRESS}"
       JWT_SECRET: "${JWT_SECRET}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4317
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      otel-lgtm:
         condition: service_healthy
     restart: unless-stopped
 
@@ -35,10 +38,13 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: "${KAFKA_TOPIC}"
       HTTP_ADDRESS: "${HTTP_ADDRESS}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4317
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      otel-lgtm:
         condition: service_healthy
     restart: unless-stopped
 
@@ -55,10 +61,13 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: "${KAFKA_TOPIC}"
       HTTP_ADDRESS: "${HTTP_ADDRESS}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4317
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       kafka:
+        condition: service_healthy
+      otel-lgtm:
         condition: service_healthy
     restart: unless-stopped
 
@@ -130,6 +139,14 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+
+  otel-lgtm:
+    image: grafana/otel-lgtm
+    container_name: relay-hook-otel
+    ports:
+      - "3000:3000"   # Grafana
+      - "4317:4317"   # gRPC
+      - "4318:4318"   # HTTP
 
 volumes:
   db-data:

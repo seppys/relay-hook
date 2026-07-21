@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os/signal"
 	"relay-hook/internal/broker"
@@ -11,6 +12,7 @@ import (
 	"relay-hook/internal/delivery"
 	"relay-hook/internal/dispatch"
 	"relay-hook/internal/subscription"
+	"relay-hook/internal/telemetry"
 	"sync"
 	"syscall"
 	"time"
@@ -30,6 +32,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Error connecting to database")
 	}
+
+	otelShutdown, err := telemetry.SetupOTelSDK(ctx, "relay-hook-dispatcher")
+	if err != nil {
+		slog.Error("Error setting up OTelSDK", "err", err)
+	}
+	defer otelShutdown(ctx)
 
 	subscriptionRepo := subscription.NewRepository(pool)
 	deliveryRepo := delivery.NewRepository(pool)

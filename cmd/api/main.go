@@ -13,6 +13,7 @@ import (
 	"relay-hook/internal/database"
 	"relay-hook/internal/event"
 	"relay-hook/internal/subscription"
+	"relay-hook/internal/telemetry"
 	"sync"
 	"syscall"
 	"time"
@@ -48,6 +49,13 @@ func main() {
 	requireJWT := auth.RequireJWT(authSvc)
 	requireSubscriberAPIKey := auth.RequireAPIKey(authSvc, auth.KeyRoleSubscriber)
 	requireEmitterAPIKey := auth.RequireAPIKey(authSvc, auth.KeyRoleEmitter)
+
+	// Telemetry
+	otelShutdown, err := telemetry.SetupOTelSDK(ctx, "relay-hook-api")
+	if err != nil {
+		slog.Error("Error setting up OTelSDK", "err", err)
+	}
+	defer otelShutdown(ctx)
 
 	// HTTP handlers
 	mux := http.NewServeMux()
