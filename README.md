@@ -160,18 +160,6 @@ Two kinds of rows qualify:
 If a delivery gets through five retries without succeeding, the endpoint is
 treated as down and the delivery is marked dead.
 
-### Tracing
-
-All three processes export OTLP over gRPC to the `otel-lgtm` container, which is
-Grafana with Tempo and Mimir behind it, on `:3000`.
-
-Traces survive the hop through Kafka. The producer injects the trace context
-into the message headers and the dispatcher extracts it before handling the
-message, so a single trace runs from the inbound `POST /events` through the
-publisher and out to the subscriber's endpoint. Metrics cover login attempts,
-key generation, events received and published, dispatches, and delivery attempts
-with a latency histogram.
-
 ## Not done yet
 
 - HMAC signatures on outgoing requests.

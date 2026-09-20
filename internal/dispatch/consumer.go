@@ -34,15 +34,13 @@ func (c *Consumer) Run(ctx context.Context) error {
 			continue
 		}
 
-		msgCtx := broker.ExtractTraceContext(ctx, msg)
-
 		var e event.Event
 		if err := json.Unmarshal(msg.Value, &e); err != nil {
 			c.kafka.Commit(msg)
 			continue
 		}
 
-		if err := c.dispatcher.Dispatch(msgCtx, e); err != nil {
+		if err := c.dispatcher.Dispatch(ctx, e); err != nil {
 			continue
 		}
 

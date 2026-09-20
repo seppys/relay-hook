@@ -7,32 +7,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var (
-	tracer         = otel.Tracer("auth")
-	meter          = otel.Meter("auth")
-	loginAttempts  metric.Int64Counter
-	keyGenerations metric.Int64Counter
-)
-
-func init() {
-	var err error
-	loginAttempts, err = meter.Int64Counter("auth.login_attempts",
-		metric.WithDescription("Number of login attempts"))
-	if err != nil {
-		panic(err)
-	}
-	keyGenerations, err = meter.Int64Counter("auth.key_generations",
-		metric.WithDescription("Number of key generations"))
-	if err != nil {
-		panic(err)
-	}
-}
 
 type Service struct {
 	repo      *Repository
@@ -57,33 +33,23 @@ func (s *Service) Register(ctx context.Context, username, password string) (User
 }
 
 func (s *Service) Login(ctx context.Context, username, password string) (string, error) {
-	ctx, span := tracer.Start(ctx, "auth.Login")
-	defer span.End()
-
 	existingUser, err := s.repo.GetByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			loginAttempts.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "invalid_credentials")))
 			return "", ErrInvalidCredentials
 		}
-		span.RecordError(err)
-		loginAttempts.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "internal_error")))
 		return "", ErrInternalServer
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(password))
 	if err != nil {
-		loginAttempts.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "invalid_credentials")))
 		return "", ErrInvalidCredentials
 	}
 	token, err := s.generateJWT(existingUser.ID)
 	if err != nil {
-		loginAttempts.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "internal_error")))
-		span.RecordError(err)
 		return "", ErrInternalServer
 	}
 
-	loginAttempts.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "success")))
 	return token, nil
 }
 
@@ -99,50 +65,31 @@ func (s *Service) GetKeys(ctx context.Context, userID string) ([]Key, error) {
 }
 
 func (s *Service) GenerateKey(ctx context.Context, userID string, role KeyRole, eventTypes []string) (GeneratedKey, error) {
-	ctx, span := tracer.Start(ctx, "auth.GenerateKey")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("user_id", userID))
-
 	k, err := NewKey(userID, role, eventTypes, time.Now().Add(7*time.Hour*24))
 	if err != nil {
 		if errors.Is(err, ErrRoleNotFound) {
-			keyGenerations.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "invalid_role")))
-			span.RecordError(err)
 			return GeneratedKey{}, ErrRoleNotFound
 		}
-		keyGenerations.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "internal_error")))
-		span.RecordError(err)
 		return GeneratedKey{}, ErrInternalServer
 	}
 
 	err = s.repo.SaveKey(ctx, k.Key)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			keyGenerations.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "user_not_found")))
-			span.RecordError(err)
 			return GeneratedKey{}, ErrUserNotFound
 		}
-		keyGenerations.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "internal_error")))
-		span.RecordError(err)
 		return GeneratedKey{}, ErrInternalServer
 	}
 
-	keyGenerations.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "success")))
 	return k, nil
 }
 
 func (s *Service) RemoveKey(ctx context.Context, userID string, keyID string) error {
-	ctx, span := tracer.Start(ctx, "auth.RemoveKey")
-	defer span.End()
-
 	err := s.repo.RemoveKey(ctx, keyID, userID)
 	if err != nil {
 		if errors.Is(err, ErrKeyNotFound) {
-			span.RecordError(err)
 			return ErrKeyNotFound
 		}
-		span.RecordError(err)
 		return ErrInternalServer
 	}
 	return nil

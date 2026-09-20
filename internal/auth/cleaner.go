@@ -28,10 +28,5 @@ func (c *Cleaner) Run(ctx context.Context) {
 }
 
 func (c *Cleaner) clean(ctx context.Context) {
-	ctx, span := tracer.Start(ctx, "auth.cleanExpiredKeys")
-	defer span.End()
-
-	if err := c.repo.RemoveExpiredKeys(ctx); err != nil {
-		span.RecordError(err)
-	}
+	_ = c.repo.RemoveExpiredKeys(ctx)
 }
